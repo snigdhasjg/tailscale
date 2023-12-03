@@ -1,0 +1,157 @@
+name: Tailscale
+run-name: "Tailscale ${{ inputs.tf-destroy && 'destroy' || 'apply' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tf-destroy:
+        type: boolean
+        default: false
+        description: "Terraform Destroy"
+
+
+concurrency: tailscale_${{ github.ref }}
+
+jobs:
+  plan:
+    environment:
+      name: sandbox
+      url: 'https://ap-south-1.console.aws.amazon.com/console/home'
+    runs-on: ubuntu-latest
+    name: Terraform plan
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TAILSCALE_OAUTH_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+      TAILSCALE_OAUTH_CLIENT_SECRET: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          role-session-name: git-${{ github.sha }}
+          aws-region: ap-south-1
+
+      - name: Setting up terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            tailscale/.terraform
+            tailscale/.terraform.lock.hcl
+          key: terraform-tailscale-${{ github.sha }}
+          restore-keys: |
+            terraform-tailscale-
+
+      - name: Init
+        id: init
+        working-directory: tailscale
+        run: terraform init -no-color
+        continue-on-error: true
+
+#      - name: Validate
+#        id: validate
+#        working-directory: tailscale
+#        run: terraform validate -no-color
+#        continue-on-error: true
+#
+#      - name: Format
+#        id: fmt
+#        working-directory: tailscale
+#        run: terraform fmt -check -no-color
+#        continue-on-error: true
+#
+#      - name: Plan
+#        id: plan
+#        working-directory: tailscale
+#        run: terraform plan -no-color -input=false
+#        continue-on-error: true
+
+      - name: Init, fmt, validation summary
+        if: failure() == false && cancelled() == false
+        run: |
+          {
+            echo -e '#### Terraform Initialization ⚙️ ${{ steps.init.outcome }}\n'
+            echo '<details>'
+            echo '<summary>Initialization Output</summary>'
+            echo -e '\n```'
+            echo '${{ steps.init.outputs.stdout }}'
+            echo '```'
+            echo -e '</details>\n'
+          
+            # echo -e '#### Terraform Format and Style 🖌 ${{ steps.fmt.outcome }}\n'
+            # echo '<details>'
+            # echo '<summary>Format and Style Output</summary>'
+            # echo -e '\n```'
+            # echo '${{ steps.fmt.outputs.stdout }}'
+            # echo '```'
+            # echo -e '</details>\n'
+            # 
+            # echo -e '#### Terraform Validation 🤖 ${{ steps.validate.outcome }}\n'
+            # echo '<details>'
+            # echo '<summary>Validation Output</summary>'
+            # echo -e '\n```'
+            # echo '${{ steps.validate.outputs.stdout }}'
+            # echo '```'
+            # echo -e '</details>\n'
+            # 
+            # echo -e '#### Terraform Plan 📖 ${{ steps.plan.outcome }}\n'
+            # echo '<details>'
+            # echo '<summary>Show Plan</summary>'
+            # echo -e '\n```terraform'
+            # echo '${{ steps.plan.outputs.stdout }}'
+            # echo '```'
+            # echo '</details>'
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Terraform Status
+        if: steps.plan.outcome == 'failure' || steps.validate.outcome == 'failure' || steps.init.outcome == 'failure' || steps.fmt.outcome == 'failure'
+        run: exit 1
+
+      - name: Apply
+        id: apply
+        if: inputs.tf-destroy == false
+        working-directory: tailscale
+        run: terraform apply -auto-approve -no-color -input=false
+
+      - name: Apply summary
+        if: inputs.tf-destroy == false && failure() == false && cancelled() == false
+        run: |
+          {
+            echo -e '#### Terraform Apply 🐢${{ steps.apply.outcome }}\n'
+            echo '<details>'
+            echo '<summary>Show Apply</summary>'
+            echo -e '\n```terraform'
+            echo '${{ steps.apply.outputs.stdout }}'
+            echo '```'
+            echo '</details>'
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Destroy
+        id: destroy
+        if: inputs.tf-destroy
+        working-directory: tailscale
+        run: terraform destroy -auto-approve -no-color -input=false
+
+      - name: Destroy summary
+        if: inputs.tf-destroy && failure() == false && cancelled() == false
+        run: |
+          {
+            echo -e '#### Terraform Destroy ♻️${{ steps.destroy.outcome }}\n'
+            echo '<details>'
+            echo '<summary>Show Destroy</summary>'
+            echo -e '\n```terraform'
+            echo '${{ steps.destroy.outputs.stdout }}'
+            echo '```'
+            echo '</details>'
+          } >> $GITHUB_STEP_SUMMARY
