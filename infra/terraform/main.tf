@@ -76,7 +76,7 @@ resource "tailscale_tailnet_key" "ec2-tailscale-key" {
 
 resource "aws_instance" "this" {
   ami                                  = data.aws_ami.amz_linux.id
-  instance_type                        = "t4g.medium"
+  instance_type                        = "m5.large"
   key_name                             = aws_key_pair.ec2_key.key_name
   subnet_id                            = data.aws_subnets.public-subnets.ids[0]
   instance_initiated_shutdown_behavior = "terminate"
