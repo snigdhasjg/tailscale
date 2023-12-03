@@ -98,11 +98,15 @@ resource "aws_instance" "this" {
     echo 'net.ipv4.ip_forward = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
     echo 'net.ipv6.conf.all.forwarding = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
     sysctl -p /etc/sysctl.d/99-tailscale.conf
+
+    yum install -y docker
+    systemctl start docker
+    usermod -aG docker ec2-user
   EOF
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 20
+    volume_size = 40
   }
 
   vpc_security_group_ids = [
