@@ -4,10 +4,14 @@ run-name: "Tailscale ${{ inputs.tf-destroy && 'destroy' || 'apply' }}"
 on:
   workflow_dispatch:
     inputs:
+      skip-apply:
+        type: boolean
+        default: false
+        description: "Skip Apply"
       tf-destroy:
         type: boolean
         default: false
-        description: "Terraform Destroy"
+        description: "Destroy"
 
 
 concurrency: tailscale_${{ github.ref }}
@@ -16,7 +20,7 @@ jobs:
   plan:
     environment:
       name: sandbox
-      url: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1#Instances:instanceState=running;tag:Name=tailscale-ec2;v=3;$case=tags:true%5C,client:false;$regex=tags:false%5C,client:false'
+      url: ${{ steps.url.outputs.ec2_page }}
     runs-on: ubuntu-latest
     name: Terraform plan
     permissions:
@@ -42,6 +46,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.5
+          terraform_wrapper: false # Needed this to parse output https://github.com/jqlang/jq/issues/2287
 
       - name: Restore cache
         uses: actions/cache@v3
@@ -73,12 +78,12 @@ jobs:
 
       - name: Apply
         id: apply
-        if: inputs.tf-destroy == false
+        if: inputs.skip-apply == false && inputs.tf-destroy == false
         working-directory: infra/terraform
         run: terraform apply -auto-approve -no-color -input=false
 
       - name: Apply summary
-        if: inputs.tf-destroy == false
+        if: inputs.skip-apply == false && inputs.tf-destroy == false
         run: |
           echo '{{ steps.apply.outputs.stdout }}' # this fails if stdout has single quotes in it
 
@@ -90,6 +95,13 @@ jobs:
             echo '```'
             echo '</details>'
           } >> $GITHUB_STEP_SUMMARY
+
+      - name: Environment Url
+        id: url
+        working-directory: infra/terraform
+        run: |
+          instance_id=$(terraform output --json | jq -r '.ec2.value.instance_id')
+          echo "ec2_page=https://${AWS_REGION}.console.aws.amazon.com/ec2/home?region=${AWS_REGION}#InstanceDetails:instanceId=${instance_id}" >> $GITHUB_OUTPUT
 
       - name: Destroy
         id: destroy

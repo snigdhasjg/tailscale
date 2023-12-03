@@ -82,7 +82,7 @@ resource "aws_instance" "this" {
   instance_initiated_shutdown_behavior = "terminate"
   iam_instance_profile                 = aws_iam_instance_profile.ec2_profile.name
   associate_public_ip_address          = true
-  user_data_replace_on_change          = true
+  user_data_replace_on_change          = false # This is to ensure tailscale key creation doesn't re-create ec2
 
   user_data = <<-EOF
     #!/bin/bash
