@@ -16,7 +16,7 @@ jobs:
   plan:
     environment:
       name: sandbox
-      url: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1#Instances:instanceState=running'
+      url: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1#Instances:instanceState=running;tag:Name=tailscale-ec2;v=3;$case=tags:true%5C,client:false;$regex=tags:false%5C,client:false'
     runs-on: ubuntu-latest
     name: Terraform plan
     permissions:

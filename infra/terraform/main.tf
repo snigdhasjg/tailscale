@@ -76,7 +76,7 @@ resource "tailscale_tailnet_key" "ec2-tailscale-key" {
 
 resource "aws_instance" "this" {
   ami                                  = data.aws_ami.amz_linux.id
-  instance_type                        = "m5.large"
+  instance_type                        = "t2.micro"
   key_name                             = aws_key_pair.ec2_key.key_name
   subnet_id                            = data.aws_subnets.public-subnets.ids[0]
   instance_initiated_shutdown_behavior = "terminate"
@@ -98,15 +98,11 @@ resource "aws_instance" "this" {
     echo 'net.ipv4.ip_forward = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
     echo 'net.ipv6.conf.all.forwarding = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
     sysctl -p /etc/sysctl.d/99-tailscale.conf
-
-    yum install -y docker
-    systemctl start docker
-    usermod -aG docker ec2-user
   EOF
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 40
+    volume_size = 8
   }
 
   vpc_security_group_ids = [
