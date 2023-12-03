@@ -16,7 +16,7 @@ jobs:
   plan:
     environment:
       name: sandbox
-      url: 'https://ap-south-1.console.aws.amazon.com/console/home'
+      url: 'https://ap-south-1.console.aws.amazon.com/ec2/home?region=ap-south-1#Instances:instanceState=running'
     runs-on: ubuntu-latest
     name: Terraform plan
     permissions:
@@ -41,41 +41,22 @@ jobs:
       - name: Setting up terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: 1.6.5
 
       - name: Restore cache
         uses: actions/cache@v3
         with:
           path: |
-            tailscale/.terraform
-            tailscale/.terraform.lock.hcl
-          key: terraform-tailscale-${{ github.sha }}
+            infra/terraform/.terraform
+            infra/terraform/.terraform.lock.hcl
+          key: infra-terraform-${{ github.sha }}
           restore-keys: |
-            terraform-tailscale-
+            infra-terraform-
 
       - name: Init
         id: init
-        working-directory: tailscale
+        working-directory: infra/terraform
         run: terraform init -no-color
-        continue-on-error: true
-
-#      - name: Validate
-#        id: validate
-#        working-directory: tailscale
-#        run: terraform validate -no-color
-#        continue-on-error: true
-#
-#      - name: Format
-#        id: fmt
-#        working-directory: tailscale
-#        run: terraform fmt -check -no-color
-#        continue-on-error: true
-#
-#      - name: Plan
-#        id: plan
-#        working-directory: tailscale
-#        run: terraform plan -no-color -input=false
-#        continue-on-error: true
 
       - name: Init, fmt, validation summary
         if: failure() == false && cancelled() == false
@@ -88,44 +69,16 @@ jobs:
             echo '${{ steps.init.outputs.stdout }}'
             echo '```'
             echo -e '</details>\n'
-          
-            # echo -e '#### Terraform Format and Style 🖌 ${{ steps.fmt.outcome }}\n'
-            # echo '<details>'
-            # echo '<summary>Format and Style Output</summary>'
-            # echo -e '\n```'
-            # echo '${{ steps.fmt.outputs.stdout }}'
-            # echo '```'
-            # echo -e '</details>\n'
-            # 
-            # echo -e '#### Terraform Validation 🤖 ${{ steps.validate.outcome }}\n'
-            # echo '<details>'
-            # echo '<summary>Validation Output</summary>'
-            # echo -e '\n```'
-            # echo '${{ steps.validate.outputs.stdout }}'
-            # echo '```'
-            # echo -e '</details>\n'
-            # 
-            # echo -e '#### Terraform Plan 📖 ${{ steps.plan.outcome }}\n'
-            # echo '<details>'
-            # echo '<summary>Show Plan</summary>'
-            # echo -e '\n```terraform'
-            # echo '${{ steps.plan.outputs.stdout }}'
-            # echo '```'
-            # echo '</details>'
           } >> $GITHUB_STEP_SUMMARY
-
-      - name: Terraform Status
-        if: steps.plan.outcome == 'failure' || steps.validate.outcome == 'failure' || steps.init.outcome == 'failure' || steps.fmt.outcome == 'failure'
-        run: exit 1
 
       - name: Apply
         id: apply
         if: inputs.tf-destroy == false
-        working-directory: tailscale
+        working-directory: infra/terraform
         run: terraform apply -auto-approve -no-color -input=false
 
       - name: Apply summary
-        if: inputs.tf-destroy == false && failure() == false && cancelled() == false
+        if: inputs.tf-destroy == false
         run: |
           {
             echo -e '#### Terraform Apply 🐢${{ steps.apply.outcome }}\n'
@@ -140,11 +93,11 @@ jobs:
       - name: Destroy
         id: destroy
         if: inputs.tf-destroy
-        working-directory: tailscale
+        working-directory: infra/terraform
         run: terraform destroy -auto-approve -no-color -input=false
 
       - name: Destroy summary
-        if: inputs.tf-destroy && failure() == false && cancelled() == false
+        if: inputs.tf-destroy
         run: |
           {
             echo -e '#### Terraform Destroy ♻️${{ steps.destroy.outcome }}\n'
