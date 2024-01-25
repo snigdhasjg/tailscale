@@ -19,6 +19,13 @@ data "aws_subnets" "public-subnets" {
       "public"
     ]
   }
+  filter {
+    name = "tag:zone"
+
+    values = [
+      "a"
+    ]
+  }
 }
 
 data "aws_ami" "amz_linux" {
