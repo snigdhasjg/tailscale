@@ -92,6 +92,7 @@ resource "aws_instance" "this" {
       --auth-key ${tailscale_tailnet_key.ec2-tailscale-key.key} \
       --advertise-exit-node \
       --advertise-routes "${data.aws_vpc.this.cidr_block}" \
+      --accept-routes
       --hostname "aws-ec2" \
       --ssh
 
